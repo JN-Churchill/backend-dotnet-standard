@@ -69,7 +69,7 @@ try
     builder.Services.AddValidatorsFromAssemblyContaining<backendStd.Application.Validators.UserInputValidator>();
 
     // 添加SqlSugar配置
-    builder.Services.AddSqlSugarSetup();
+    builder.Services.AddSqlSugarSetup(builder.Configuration);
 
     // 注册仓储
     builder.Services.AddScoped(typeof(IRepository<>), typeof(SqlSugarRepository<>));
@@ -124,8 +124,8 @@ try
         options.WaitForJobsToComplete = true;
     });
 
-    // 配置统一返回结果
-    builder.Services.AddUnifyResult<backendStd.Core.Util.TdivsResultProvider>();
+    // 配置统一返回结果（已注释，使用GlobalExceptionFilter代替）
+    // builder.Services.AddUnifyResult<backendStd.Core.Util.TdivsResultProvider>();
 
     // 配置Swagger
     builder.Services.AddEndpointsApiExplorer();

@@ -1,8 +1,8 @@
 using backendStd.Core.Entity.Base;
 using backendStd.Core.Options;
-using Furion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SqlSugar;
 using Yitter.IdGenerator;
 
@@ -16,11 +16,15 @@ public static class SqlSugarSetup
     /// <summary>
     /// 注册SqlSugar服务
     /// </summary>
-    public static IServiceCollection AddSqlSugarSetup(this IServiceCollection services)
+    public static IServiceCollection AddSqlSugarSetup(this IServiceCollection services, IConfiguration configuration)
     {
+        // 配置选项
+        services.Configure<DbConnectionOptions>(configuration.GetSection("DbConnectionOptions"));
+        services.Configure<SnowIdOptions>(configuration.GetSection("SnowIdOptions"));
+        
         // 读取配置
-        var dbOptions = App.GetOptions<DbConnectionOptions>();
-        var snowIdOptions = App.GetOptions<SnowIdOptions>();
+        var dbOptions = configuration.GetSection("DbConnectionOptions").Get<DbConnectionOptions>();
+        var snowIdOptions = configuration.GetSection("SnowIdOptions").Get<SnowIdOptions>();
 
         // 初始化雪花ID生成器
         YitIdHelper.SetIdGenerator(new IdGeneratorOptions
@@ -136,7 +140,7 @@ public static class SqlSugarSetup
         });
 
         // 初始化数据库
-        InitDatabase(services);
+        InitDatabase(services, dbOptions);
 
         return services;
     }
@@ -144,18 +148,17 @@ public static class SqlSugarSetup
     /// <summary>
     /// 初始化数据库（创建表、种子数据）
     /// </summary>
-    private static void InitDatabase(IServiceCollection services)
+    private static void InitDatabase(IServiceCollection services, DbConnectionOptions dbOptions)
     {
         var serviceProvider = services.BuildServiceProvider();
         var db = serviceProvider.GetRequiredService<ISqlSugarClient>();
-        var dbOptions = App.GetOptions<DbConnectionOptions>();
 
         foreach (var config in dbOptions.ConnectionConfigs)
         {
             if (config.EnableInitDb)
             {
                 // 获取当前程序集中的所有实体类型
-                var entityTypes = App.EffectiveTypes
+                var entityTypes = typeof(EntityBase).Assembly.GetTypes()
                     .Where(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(EntityBase)))
                     .ToArray();
 
