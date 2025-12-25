@@ -1,5 +1,7 @@
 using backendStd.Application.Dtos;
+using backendStd.Application.Dtos.RefreshToken;
 using backendStd.Application.Dtos.User;
+using backendStd.Core.Auth;
 using backendStd.Core.Cache;
 using backendStd.Core.Const;
 using backendStd.Core.Entity;
@@ -19,15 +21,21 @@ public class UserService
     private readonly IRepository<User> _userRepository;
     private readonly ICacheService _cacheService;
     private readonly JWTSettingsOptions _jwtOptions;
+    private readonly RefreshTokenOptions _refreshTokenOptions;
+    private readonly JwtHandler _jwtHandler;
 
     public UserService(
         IRepository<User> userRepository,
         ICacheService cacheService,
-        IOptions<JWTSettingsOptions> jwtOptions)
+        IOptions<JWTSettingsOptions> jwtOptions,
+        IOptions<RefreshTokenOptions> refreshTokenOptions,
+        JwtHandler jwtHandler)
     {
         _userRepository = userRepository;
         _cacheService = cacheService;
         _jwtOptions = jwtOptions.Value;
+        _refreshTokenOptions = refreshTokenOptions.Value;
+        _jwtHandler = jwtHandler;
     }
 
     /// <summary>
@@ -56,15 +64,15 @@ public class UserService
         // user.LastLoginIp = 从HttpContext获取;
         await _userRepository.UpdateAsync(user);
 
-        // 生成Token（简化版，实际应该使用JWT库）
-        var accessToken = GenerateAccessToken(user);
-        var refreshToken = GenerateRefreshToken(user);
+        // 使用JwtHandler生成Token
+        var accessToken = _jwtHandler.GenerateAccessToken(user);
+        var refreshToken = _jwtHandler.GenerateRefreshToken();
 
         // 缓存RefreshToken
         await _cacheService.SetAsync(
             $"{CacheConst.REFRESH_TOKEN_PREFIX}{user.Id}",
             refreshToken,
-            TimeSpan.FromMinutes(_jwtOptions.ExpiredTime * 30) // RefreshToken有效期更长
+            TimeSpan.FromMinutes(_refreshTokenOptions.ExpiredTime)
         );
 
         return new LoginOutput
@@ -152,19 +160,60 @@ public class UserService
     }
 
     /// <summary>
-    /// 生成AccessToken（简化版，实际应该使用JWT库）
+    /// 刷新Token
     /// </summary>
-    private string GenerateAccessToken(User user)
+    public async Task<RefreshTokenOutput> RefreshTokenAsync(RefreshTokenInput input)
     {
-        // TODO: 实际应该使用System.IdentityModel.Tokens.Jwt生成标准JWT Token
-        return $"Bearer_{user.Id}_{Guid.NewGuid():N}";
-    }
+        // 从AccessToken中解析用户ID（即使已过期，仍然可以解析Claims）
+        long? userId = null;
+        
+        if (!string.IsNullOrEmpty(input.AccessToken))
+        {
+            // 不验证过期时间，只解析Claims
+            userId = _jwtHandler.GetUserIdFromToken(input.AccessToken);
+        }
 
-    /// <summary>
-    /// 生成RefreshToken
-    /// </summary>
-    private string GenerateRefreshToken(User user)
-    {
-        return Guid.NewGuid().ToString("N");
+        if (userId == null)
+        {
+            throw new Common.Exceptions.BusinessException("无效的访问令牌");
+        }
+
+        // 验证RefreshToken
+        var cachedRefreshToken = await _cacheService.GetAsync<string>($"{CacheConst.REFRESH_TOKEN_PREFIX}{userId}");
+        
+        if (string.IsNullOrEmpty(cachedRefreshToken) || cachedRefreshToken != input.RefreshToken)
+        {
+            throw new Common.Exceptions.BusinessException("刷新令牌无效或已过期");
+        }
+
+        // 获取用户信息
+        var user = await _userRepository.GetByIdAsync(userId.Value);
+        if (user == null)
+        {
+            throw new Common.Exceptions.BusinessException("用户不存在");
+        }
+
+        if (user.Status == 0)
+        {
+            throw new Common.Exceptions.BusinessException("用户已被禁用");
+        }
+
+        // 生成新的Token
+        var newAccessToken = _jwtHandler.GenerateAccessToken(user);
+        var newRefreshToken = _jwtHandler.GenerateRefreshToken();
+
+        // 更新缓存中的RefreshToken
+        await _cacheService.SetAsync(
+            $"{CacheConst.REFRESH_TOKEN_PREFIX}{user.Id}",
+            newRefreshToken,
+            TimeSpan.FromMinutes(_refreshTokenOptions.ExpiredTime)
+        );
+
+        return new RefreshTokenOutput
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken,
+            ExpiredTime = _jwtOptions.ExpiredTime
+        };
     }
 }

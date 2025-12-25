@@ -2,9 +2,14 @@ using backendStd.Core.SqlSugarConfig;
 using backendStd.Application.Services;
 using backendStd.Core.Repository;
 using backendStd.Core.Cache;
+using backendStd.Core.Auth;
+using backendStd.Core.Options;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Serilog;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 // 配置Serilog
 Log.Logger = new LoggerConfiguration()
@@ -23,6 +28,32 @@ try
     // 配置服务
     builder.Services.AddControllers();
 
+    // 配置JWT选项
+    builder.Services.Configure<JWTSettingsOptions>(builder.Configuration.GetSection("JWTSettings"));
+    builder.Services.Configure<RefreshTokenOptions>(builder.Configuration.GetSection("RefreshTokenOptions"));
+
+    // 添加JWT认证
+    var jwtSettings = builder.Configuration.GetSection("JWTSettings").Get<JWTSettingsOptions>();
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = jwtSettings!.ValidateIssuerSigningKey,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.IssuerSigningKey)),
+            ValidateIssuer = jwtSettings.ValidateIssuer,
+            ValidIssuer = jwtSettings.ValidIssuer,
+            ValidateAudience = jwtSettings.ValidateAudience,
+            ValidAudience = jwtSettings.ValidAudience,
+            ValidateLifetime = jwtSettings.ValidateLifetime,
+            ClockSkew = TimeSpan.FromMinutes(jwtSettings.ClockSkew)
+        };
+    });
+
     // 添加FluentValidation
     builder.Services.AddFluentValidationAutoValidation();
     builder.Services.AddValidatorsFromAssemblyContaining<backendStd.Application.Validators.UserInputValidator>();
@@ -32,6 +63,9 @@ try
 
     // 注册仓储
     builder.Services.AddScoped(typeof(IRepository<>), typeof(SqlSugarRepository<>));
+
+    // 注册JWT处理器
+    builder.Services.AddScoped<JwtHandler>();
 
     // 注册缓存服务（默认使用内存缓存）
     builder.Services.AddMemoryCache();

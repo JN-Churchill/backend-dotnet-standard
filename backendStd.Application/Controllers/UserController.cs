@@ -1,4 +1,5 @@
 using backendStd.Application.Dtos;
+using backendStd.Application.Dtos.RefreshToken;
 using backendStd.Application.Dtos.User;
 using backendStd.Application.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,15 @@ public class UserController : ControllerBase
     public async Task<LoginOutput> Login([FromBody] LoginInput input)
     {
         return await _userService.LoginAsync(input);
+    }
+
+    /// <summary>
+    /// 刷新Token
+    /// </summary>
+    [HttpPost("refresh-token")]
+    public async Task<RefreshTokenOutput> RefreshToken([FromBody] RefreshTokenInput input)
+    {
+        return await _userService.RefreshTokenAsync(input);
     }
 
     /// <summary>
