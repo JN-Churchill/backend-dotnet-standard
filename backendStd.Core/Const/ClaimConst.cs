@@ -29,11 +29,6 @@ public static class ClaimConst
     /// 邮箱
     /// </summary>
     public const string EMAIL = "Email";
-
-    /// <summary>
-    /// 租户ID
-    /// </summary>
-    public const string TENANT_ID = "TenantId";
 }
 
 /// <summary>
