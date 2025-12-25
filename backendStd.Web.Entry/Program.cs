@@ -88,11 +88,6 @@ try
     builder.Services.AddScoped<RoleService>();
     builder.Services.AddScoped<PermissionService>();
     builder.Services.AddScoped<JobService>();
-    builder.Services.AddScoped<TenantService>();
-
-    // 注册租户上下文
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<TenantContext>();
 
     // 配置Quartz定时任务
     builder.Services.AddQuartz(q =>
