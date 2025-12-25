@@ -45,6 +45,12 @@ public class User : Base.EntityBase
     public string Avatar { get; set; }
 
     /// <summary>
+    /// 部门ID
+    /// </summary>
+    [SugarColumn(ColumnDescription = "部门ID", IsNullable = true)]
+    public long? DepartmentId { get; set; }
+
+    /// <summary>
     /// 状态 0=禁用 1=启用
     /// </summary>
     [SugarColumn(ColumnDescription = "状态")]

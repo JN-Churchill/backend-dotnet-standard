@@ -6,12 +6,14 @@ using backendStd.Core.Auth;
 using backendStd.Core.Options;
 using backendStd.Core.Filters;
 using backendStd.Core.Middleware;
+using backendStd.Core.Jobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Quartz;
 
 // 配置Serilog
 Log.Logger = new LoggerConfiguration()
@@ -85,6 +87,42 @@ try
     builder.Services.AddScoped<FileService>();
     builder.Services.AddScoped<RoleService>();
     builder.Services.AddScoped<PermissionService>();
+    builder.Services.AddScoped<JobService>();
+    builder.Services.AddScoped<TenantService>();
+
+    // 注册租户上下文
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<TenantContext>();
+
+    // 配置Quartz定时任务
+    builder.Services.AddQuartz(q =>
+    {
+        q.UseMicrosoftDependencyInjectionJobFactory();
+
+        // 配置DataCleanupJob - 每天凌晨2点执行
+        var dataCleanupJobKey = new JobKey("DataCleanupJob");
+        q.AddJob<DataCleanupJob>(opts => opts.WithIdentity(dataCleanupJobKey));
+        q.AddTrigger(opts => opts
+            .ForJob(dataCleanupJobKey)
+            .WithIdentity("DataCleanupJob-trigger")
+            .WithCronSchedule("0 0 2 * * ?") // 每天凌晨2点
+            .WithDescription("数据清理任务 - 每天凌晨2点执行"));
+
+        // 配置DataStatisticsJob - 每天凌晨1点执行
+        var dataStatisticsJobKey = new JobKey("DataStatisticsJob");
+        q.AddJob<DataStatisticsJob>(opts => opts.WithIdentity(dataStatisticsJobKey));
+        q.AddTrigger(opts => opts
+            .ForJob(dataStatisticsJobKey)
+            .WithIdentity("DataStatisticsJob-trigger")
+            .WithCronSchedule("0 0 1 * * ?") // 每天凌晨1点
+            .WithDescription("数据统计任务 - 每天凌晨1点执行"));
+    });
+
+    // 添加Quartz托管服务
+    builder.Services.AddQuartzHostedService(options =>
+    {
+        options.WaitForJobsToComplete = true;
+    });
 
     // 配置统一返回结果
     builder.Services.AddUnifyResult<backendStd.Core.Util.TdivsResultProvider>();

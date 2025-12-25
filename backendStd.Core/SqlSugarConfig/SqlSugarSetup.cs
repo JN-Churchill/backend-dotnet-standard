@@ -121,6 +121,15 @@ public static class SqlSugarSetup
                 // 全局过滤器
                 // 软删除过滤器
                 db.QueryFilter.AddTableFilter<EntityBase>(u => u.IsDeleted == false);
+                
+                // 数据权限过滤器（需要配合HttpContext使用）
+                // 注意：这里只是示例，实际使用时需要在Repository中根据用户的数据权限动态添加过滤条件
+                // 例如：db.QueryFilter.AddTableFilter<EntityBase>(u => u.CreateUserId == currentUserId);
+                
+                // 租户过滤器（需要配合HttpContext使用）
+                // 对于继承EntityTenantBase的实体，自动过滤租户数据
+                // 注意：实际使用时需要在Repository中根据当前租户ID动态添加过滤条件
+                // 例如：db.QueryFilter.AddTableFilter<EntityTenantBase>(u => u.TenantId == currentTenantId);
             });
 
             return db;
