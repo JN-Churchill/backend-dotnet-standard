@@ -4,6 +4,8 @@ using backendStd.Core.Repository;
 using backendStd.Core.Cache;
 using backendStd.Core.Auth;
 using backendStd.Core.Options;
+using backendStd.Core.Filters;
+using backendStd.Core.Middleware;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Serilog;
@@ -26,11 +28,17 @@ try
     builder.Host.UseSerilog();
 
     // 配置服务
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(options =>
+    {
+        // 添加全局异常过滤器
+        options.Filters.Add<GlobalExceptionFilter>();
+    });
 
     // 配置JWT选项
     builder.Services.Configure<JWTSettingsOptions>(builder.Configuration.GetSection("JWTSettings"));
     builder.Services.Configure<RefreshTokenOptions>(builder.Configuration.GetSection("RefreshTokenOptions"));
+    builder.Services.Configure<RequestLoggingOptions>(builder.Configuration.GetSection("RequestLoggingOptions"));
+    builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimitOptions"));
 
     // 添加JWT认证
     var jwtSettings = builder.Configuration.GetSection("JWTSettings").Get<JWTSettingsOptions>();
@@ -75,6 +83,8 @@ try
     builder.Services.AddScoped<UserService>();
     builder.Services.AddScoped<DemoService>();
     builder.Services.AddScoped<FileService>();
+    builder.Services.AddScoped<RoleService>();
+    builder.Services.AddScoped<PermissionService>();
 
     // 配置统一返回结果
     builder.Services.AddUnifyResult<backendStd.Core.Util.TdivsResultProvider>();
@@ -112,6 +122,12 @@ try
 
     app.UseHttpsRedirection();
     app.UseStaticFiles();
+
+    // 请求日志中间件
+    app.UseMiddleware<RequestLoggingMiddleware>();
+
+    // 限流中间件
+    app.UseMiddleware<RateLimitingMiddleware>();
 
     app.UseRouting();
 
