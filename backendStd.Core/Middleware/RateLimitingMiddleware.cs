@@ -6,6 +6,7 @@ using backendStd.Core.Cache;
 using backendStd.Core.Const;
 using backendStd.Core.Auth;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace backendStd.Core.Middleware;
 
@@ -42,14 +43,14 @@ public class RateLimitingMiddleware
             return;
         }
 
-        // 检查是否有自定义限流特性
-        var endpoint = context.GetEndpoint();
-        var rateLimitAttr = endpoint?.Metadata.GetMetadata<RateLimitAttribute>();
+        // 检查是否有自定义限流特性 - 简化版本，直接使用默认配置
+        // var endpoint = context.GetEndpoint();
+        // var rateLimitAttr = endpoint?.Metadata.GetMetadata<RateLimitAttribute>();
 
-        // 获取限流参数
-        int limit = rateLimitAttr?.Limit ?? _options.DefaultLimit;
-        int window = rateLimitAttr?.Window ?? _options.DefaultWindow;
-        string type = rateLimitAttr?.Type ?? "ip";
+        // 获取限流参数 - 使用默认配置
+        int limit = _options.DefaultLimit;
+        int window = _options.DefaultWindow;
+        string type = "ip";
 
         // 生成限流Key
         string rateLimitKey = GenerateRateLimitKey(context, type);
@@ -61,7 +62,7 @@ public class RateLimitingMiddleware
 
             context.Response.StatusCode = 429; // Too Many Requests
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new
+            var response = JsonSerializer.Serialize(new
             {
                 Code = 429,
                 Type = "error",
@@ -70,6 +71,7 @@ public class RateLimitingMiddleware
                 Extras = (object?)null,
                 Time = DateTime.Now
             });
+            await context.Response.WriteAsync(response);
             return;
         }
 

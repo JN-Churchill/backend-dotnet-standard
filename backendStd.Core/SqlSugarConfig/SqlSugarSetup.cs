@@ -19,8 +19,8 @@ public static class SqlSugarSetup
     public static IServiceCollection AddSqlSugarSetup(this IServiceCollection services, IConfiguration configuration)
     {
         // 配置选项
-        services.Configure<DbConnectionOptions>(configuration.GetSection("DbConnectionOptions"));
-        services.Configure<SnowIdOptions>(configuration.GetSection("SnowIdOptions"));
+        services.Configure<DbConnectionOptions>(opt => configuration.GetSection("DbConnectionOptions").Bind(opt));
+        services.Configure<SnowIdOptions>(opt => configuration.GetSection("SnowIdOptions").Bind(opt));
         
         // 读取配置
         var dbOptions = configuration.GetSection("DbConnectionOptions").Get<DbConnectionOptions>();
