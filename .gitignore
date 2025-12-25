@@ -4,3 +4,14 @@ obj/
 *.user
 *.suo
 appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+logs/
+*.log
+.vscode/
+.idea/
+*.swp
+*.bak
+*~
+.DS_Store
+uploads/
