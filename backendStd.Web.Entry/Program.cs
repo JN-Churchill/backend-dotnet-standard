@@ -150,6 +150,7 @@ try
         app.UseSwaggerUI(options =>
         {
             options.SwaggerEndpoint("/swagger/v1/swagger.json", "Backend Standard API v1");
+            options.RoutePrefix = string.Empty; // 设置Swagger UI为根路径
         });
     }
 
