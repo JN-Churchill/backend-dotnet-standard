@@ -133,6 +133,31 @@ try
             Description = "企业级.NET 8 Web API 模板"
         });
         
+        // 添加JWT认证支持
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Description = "JWT授权(数据将在请求头中进行传输) 在下方输入Bearer {token}，注意Bearer和token之间有空格",
+            Name = "Authorization",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+        
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            {
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                new string[] { }
+            }
+        });
+        
         // 添加XML注释
         var xmlFiles = Directory.GetFiles(AppContext.BaseDirectory, "*.xml");
         foreach (var xmlFile in xmlFiles)
