@@ -21,6 +21,7 @@ public static class SqlSugarSetup
         // 配置选项
         services.Configure<DbConnectionOptions>(opt => configuration.GetSection("DbConnectionOptions").Bind(opt));
         services.Configure<SnowIdOptions>(opt => configuration.GetSection("SnowIdOptions").Bind(opt));
+        services.Configure<SeedDataOptions>(opt => configuration.GetSection("SeedDataOptions").Bind(opt));
         
         // 读取配置
         var dbOptions = configuration.GetSection("DbConnectionOptions").Get<DbConnectionOptions>();
@@ -162,6 +163,10 @@ public static class SqlSugarSetup
                 db.CodeFirst.InitTables(entityTypes);
 
                 Console.WriteLine($"[数据库初始化] 已创建 {entityTypes.Length} 张表");
+
+                // 初始化种子数据
+                var seedDataService = new SeedDataService(db, serviceProvider.GetRequiredService<IOptions<SeedDataOptions>>());
+                seedDataService.InitSeedDataAsync().Wait();
             }
         }
     }

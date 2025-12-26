@@ -72,6 +72,7 @@ try
     builder.Services.Configure<RefreshTokenOptions>(builder.Configuration.GetSection("RefreshTokenOptions"));
     builder.Services.Configure<RequestLoggingOptions>(builder.Configuration.GetSection("RequestLoggingOptions"));
     builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimitOptions"));
+    builder.Services.Configure<SeedDataOptions>(builder.Configuration.GetSection("SeedDataOptions"));
 
     // 添加JWT认证
     var jwtSettings = builder.Configuration.GetSection("JWTSettings").Get<JWTSettingsOptions>();
@@ -119,6 +120,7 @@ try
     builder.Services.AddScoped<RoleService>();
     builder.Services.AddScoped<PermissionService>();
     builder.Services.AddScoped<JobService>();
+    builder.Services.AddScoped<DepartmentService>();
 
     // 配置Quartz定时任务
     builder.Services.AddQuartz(q =>
