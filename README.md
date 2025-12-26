@@ -45,6 +45,7 @@
 - [x] 实体基类（审计字段、软删除）
 - [x] 仓储模式封装（CRUD、分页）
 - [x] 统一返回结果格式
+- [x] 种子数据初始化（自动创建默认用户、角色、权限、部门）
 
 #### 认证授权
 - [x] JWT认证完整实现（AccessToken + RefreshToken）
@@ -73,9 +74,10 @@
 - [x] 用户管理（登录、CRUD、刷新Token）
 - [x] 角色管理（CRUD、权限分配）
 - [x] 权限管理（CRUD、树形结构）
-- [x] 部门管理
+- [x] 部门管理（CRUD、树形结构、用户列表）
 - [x] Demo示例模块（完整CRUD）
 - [x] 定时任务管理（暂停、恢复、触发）
+- [x] 操作日志记录
 
 ---
 
@@ -163,6 +165,7 @@ backendStd.sln
 │   │   ├── UserController.cs     用户管理（8个API）
 │   │   ├── RoleController.cs     角色管理（7个API）
 │   │   ├── PermissionController.cs 权限管理（6个API）
+│   │   ├── DepartmentController.cs 部门管理（7个API）
 │   │   ├── JobController.cs      任务管理（5个API）
 │   │   └── DemoController.cs     示例控制器（6个API）
 │   ├── Dtos/                     数据传输对象
@@ -171,11 +174,13 @@ backendStd.sln
 │   │   ├── User/                 用户DTO
 │   │   ├── Role/                 角色DTO
 │   │   ├── Permission/           权限DTO
+│   │   ├── Department/           部门DTO
 │   │   └── Demo/                 演示DTO
 │   ├── Services/                 业务服务
 │   │   ├── UserService.cs        用户服务
 │   │   ├── RoleService.cs        角色服务
 │   │   ├── PermissionService.cs  权限服务
+│   │   ├── DepartmentService.cs  部门服务
 │   │   ├── JobService.cs         任务服务
 │   │   ├── DemoService.cs        演示服务
 │   │   └── FileService.cs        文件服务
@@ -193,12 +198,14 @@ backendStd.sln
 │   │   ├── RolePermission.cs     角色权限关系
 │   │   ├── UserRole.cs           用户角色关系
 │   │   ├── Department.cs         部门实体
+│   │   ├── OperationLog.cs       操作日志实体
 │   │   └── Demo.cs               演示实体
 │   ├── Repository/               仓储模式
 │   │   ├── IRepository.cs        仓储接口
 │   │   └── SqlSugarRepository.cs SqlSugar实现
 │   ├── SqlSugarConfig/           数据库配置
-│   │   └── SqlSugarSetup.cs      SqlSugar初始化
+│   │   ├── SqlSugarSetup.cs      SqlSugar初始化
+│   │   └── SeedDataService.cs    种子数据服务
 │   ├── Auth/                     认证授权
 │   │   ├── JwtHandler.cs         JWT处理器
 │   │   ├── RequirePermissionAttribute.cs 权限验证特性
@@ -222,6 +229,7 @@ backendStd.sln
 │   │   ├── DbConnectionOptions.cs 数据库配置
 │   │   ├── JWTSettingsOptions.cs JWT配置
 │   │   ├── RedisOptions.cs       Redis配置
+│   │   ├── SeedDataOptions.cs    种子数据配置
 │   │   └── FileUploadOptions.cs  文件上传配置
 │   ├── Enum/                     枚举定义
 │   ├── Const/                    常量定义
@@ -463,7 +471,44 @@ RequestLoggingMiddleware会自动记录所有HTTP请求和响应：
 }
 ```
 
-### 3. 配置JWT密钥
+### 3. 种子数据配置（可选）
+
+种子数据功能会在首次启动时自动创建默认数据。配置说明：
+
+```json
+{
+  "SeedDataOptions": {
+    "EnableSeedData": true,  // 是否启用种子数据初始化
+    "SeedDataFlagFile": "seed_data_initialized.flag"  // 标记文件路径
+  }
+}
+```
+
+#### 默认种子数据包括：
+
+**部门数据**：
+- 总公司 (HQ)
+- 技术部 (TECH)
+- 运营部 (OPS)
+
+**角色数据**：
+- 超级管理员 (super_admin)
+- 系统管理员 (admin)
+- 普通用户 (user)
+
+**权限数据**（树形结构）：
+- 系统管理 → 用户管理 → 查看/新增/编辑/删除
+- 系统管理 → 角色管理 → 查看/新增/编辑/删除/分配权限
+- 系统管理 → 权限管理 → 查看/新增/编辑/删除
+- 系统管理 → 部门管理 → 查看/新增/编辑/删除
+
+**默认用户**：
+- 用户名: `superadmin`, 密码: `123456` (超级管理员，拥有所有权限)
+- 用户名: `admin`, 密码: `123456` (系统管理员，拥有除权限管理外的所有权限)
+
+> **注意**: 种子数据仅在首次启动且数据库为空时初始化。如需重新初始化，请删除 `seed_data_initialized.flag` 文件并清空数据库。
+
+### 4. 配置JWT密钥
 
 ```json
 {
@@ -481,18 +526,18 @@ RequestLoggingMiddleware会自动记录所有HTTP请求和响应：
 }
 ```
 
-### 4. 运行项目
+### 5. 运行项目
 
 ```bash
 cd backendStd.Web.Entry
 dotnet run
 ```
 
-### 5. 访问Swagger
+### 6. 访问Swagger
 
 浏览器打开: `http://localhost:5000/swagger`
 
-### 6. 测试登录API
+### 7. 测试登录API
 
 ```bash
 curl -X POST http://localhost:5000/api/user/login \
@@ -672,9 +717,10 @@ builder.Services.AddScoped<ArticleService>();
 - **用户管理**: 8个API（登录、刷新Token、分页查询、详情、新增、更新、删除、批量删除）
 - **角色管理**: 7个API（分页查询、详情、新增、更新、删除、分配权限、查询权限）
 - **权限管理**: 6个API（分页查询、树形结构、详情、新增、更新、删除）
+- **部门管理**: 7个API（分页查询、树形结构、详情、新增、更新、删除、获取部门用户）
 - **任务管理**: 5个API（列表、暂停、恢复、触发、删除）
 - **Demo管理**: 6个API（分页查询、详情、新增、更新、删除、批量删除）
-- **总计**: 32个RESTful API端点
+- **总计**: 39个RESTful API端点
 
 ---
 
@@ -794,14 +840,14 @@ dotnet publish -c Release -o ./publish
 ## 项目统计
 
 ### 代码文件
-- **实体类**: 8个（EntityBase, User, Role, Permission, RolePermission, UserRole, Department, Demo）
+- **实体类**: 9个（EntityBase, User, Role, Permission, RolePermission, UserRole, Department, OperationLog, Demo）
 - **仓储类**: 2个（IRepository, SqlSugarRepository）
-- **服务类**: 6个（UserService, RoleService, PermissionService, JobService, DemoService, FileService）
-- **控制器**: 5个（UserController, RoleController, PermissionController, JobController, DemoController）
-- **DTO类**: 15+个
+- **服务类**: 7个（UserService, RoleService, PermissionService, DepartmentService, JobService, DemoService, FileService）
+- **控制器**: 6个（UserController, RoleController, PermissionController, DepartmentController, JobController, DemoController）
+- **DTO类**: 18+个
 - **验证器**: 6个
 - **工具类**: 5个
-- **配置类**: 7个
+- **配置类**: 8个
 - **异常类**: 2个
 - **缓存类**: 3个
 - **定时任务**: 3个
