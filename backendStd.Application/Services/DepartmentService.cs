@@ -75,6 +75,9 @@ public class DepartmentService
 
         var department = input.Adapt<Department>();
         
+        // 先生成ID（使用雪花ID）
+        department.Id = Yitter.IdGenerator.YitIdHelper.NextId();
+        
         // 计算部门级别和路径
         if (input.ParentId > 0)
         {
@@ -91,22 +94,9 @@ public class DepartmentService
             department.DepartmentPath = $"/{department.Id}";
         }
 
-        var id = await _departmentRepository.InsertAsync(department);
+        await _departmentRepository.InsertAsync(department);
         
-        // 更新部门路径（因为插入后才有ID）
-        department.Id = id;
-        if (input.ParentId > 0)
-        {
-            var parentDepartment = await _departmentRepository.GetByIdAsync(input.ParentId);
-            department.DepartmentPath = $"{parentDepartment.DepartmentPath}/{id}";
-        }
-        else
-        {
-            department.DepartmentPath = $"/{id}";
-        }
-        await _departmentRepository.UpdateAsync(department);
-        
-        return id;
+        return department.Id;
     }
 
     /// <summary>
@@ -166,20 +156,40 @@ public class DepartmentService
     }
 
     /// <summary>
-    /// 构建部门树形结构
+    /// 构建部门树形结构（优化版本，O(n)时间复杂度）
     /// </summary>
     private List<DepartmentDto> BuildDepartmentTree(List<DepartmentDto> allDepartments, long parentId)
     {
-        return allDepartments
-            .Where(d => d.ParentId == parentId)
-            .OrderBy(d => d.Sort)
-            .Select(d =>
+        // 使用字典优化查找性能，避免每次都遍历整个列表
+        var departmentDict = allDepartments.ToDictionary(d => d.Id);
+        var childrenDict = allDepartments
+            .GroupBy(d => d.ParentId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(d => d.Sort).ToList());
+
+        // 构建树形结构
+        void BuildTree(DepartmentDto node)
+        {
+            if (childrenDict.TryGetValue(node.Id, out var children))
             {
-                d.Children = BuildDepartmentTree(allDepartments, d.Id);
-                if (d.Children.Count == 0)
-                    d.Children = null;
-                return d;
-            })
-            .ToList();
+                node.Children = children;
+                foreach (var child in children)
+                {
+                    BuildTree(child);
+                }
+            }
+        }
+
+        // 获取顶级部门
+        var rootDepartments = childrenDict.TryGetValue(parentId, out var roots) 
+            ? roots 
+            : new List<DepartmentDto>();
+
+        // 为每个顶级部门构建子树
+        foreach (var root in rootDepartments)
+        {
+            BuildTree(root);
+        }
+
+        return rootDepartments;
     }
 }
