@@ -160,8 +160,7 @@ public class DepartmentService
     /// </summary>
     private List<DepartmentDto> BuildDepartmentTree(List<DepartmentDto> allDepartments, long parentId)
     {
-        // 使用字典优化查找性能，避免每次都遍历整个列表
-        var departmentDict = allDepartments.ToDictionary(d => d.Id);
+        // 使用字典优化查找性能，按ParentId分组
         var childrenDict = allDepartments
             .GroupBy(d => d.ParentId)
             .ToDictionary(g => g.Key, g => g.OrderBy(d => d.Sort).ToList());

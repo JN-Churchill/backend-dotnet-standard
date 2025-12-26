@@ -72,7 +72,6 @@ try
     builder.Services.Configure<RefreshTokenOptions>(builder.Configuration.GetSection("RefreshTokenOptions"));
     builder.Services.Configure<RequestLoggingOptions>(builder.Configuration.GetSection("RequestLoggingOptions"));
     builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimitOptions"));
-    builder.Services.Configure<SeedDataOptions>(builder.Configuration.GetSection("SeedDataOptions"));
 
     // 添加JWT认证
     var jwtSettings = builder.Configuration.GetSection("JWTSettings").Get<JWTSettingsOptions>();
