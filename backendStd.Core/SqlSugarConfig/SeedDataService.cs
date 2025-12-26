@@ -26,8 +26,11 @@ public class SeedDataService
     /// </summary>
     public async Task InitSeedDataAsync()
     {
+        // 获取标记文件的绝对路径（相对于应用程序基目录）
+        var flagFilePath = Path.Combine(AppContext.BaseDirectory, _options.SeedDataFlagFile);
+        
         // 检查标记文件
-        if (File.Exists(_options.SeedDataFlagFile))
+        if (File.Exists(flagFilePath))
         {
             Console.WriteLine("[种子数据] 种子数据已初始化，跳过");
             return;
@@ -62,7 +65,7 @@ public class SeedDataService
             await InitRolePermissionsAsync(roles, permissions);
 
             // 创建标记文件
-            await File.WriteAllTextAsync(_options.SeedDataFlagFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            await File.WriteAllTextAsync(flagFilePath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             
             Console.WriteLine("[种子数据] 种子数据初始化完成");
         }

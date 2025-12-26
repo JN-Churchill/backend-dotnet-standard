@@ -1,6 +1,7 @@
 using backendStd.Application.Dtos;
 using backendStd.Application.Dtos.Department;
 using backendStd.Application.Dtos.User;
+using backendStd.Common.Exceptions;
 using backendStd.Core.Entity;
 using backendStd.Core.Repository;
 using Mapster;
@@ -57,7 +58,7 @@ public class DepartmentService
     {
         var department = await _departmentRepository.GetByIdAsync(id);
         if (department == null)
-            throw new Common.Exceptions.BusinessException("部门不存在");
+            throw new BusinessException("部门不存在");
 
         return department.Adapt<DepartmentDto>();
     }
@@ -70,7 +71,7 @@ public class DepartmentService
         // 检查部门编码是否存在
         var existDepartments = await _departmentRepository.GetListAsync(d => d.DepartmentCode == input.DepartmentCode);
         if (existDepartments.Any())
-            throw new Common.Exceptions.BusinessException("部门编码已存在");
+            throw new BusinessException("部门编码已存在");
 
         var department = input.Adapt<Department>();
         
@@ -79,7 +80,7 @@ public class DepartmentService
         {
             var parentDepartment = await _departmentRepository.GetByIdAsync(input.ParentId);
             if (parentDepartment == null)
-                throw new Common.Exceptions.BusinessException("父级部门不存在");
+                throw new BusinessException("父级部门不存在");
 
             department.Level = parentDepartment.Level + 1;
             department.DepartmentPath = $"{parentDepartment.DepartmentPath}/{department.Id}";
@@ -115,13 +116,13 @@ public class DepartmentService
     {
         var department = await _departmentRepository.GetByIdAsync(id);
         if (department == null)
-            throw new Common.Exceptions.BusinessException("部门不存在");
+            throw new BusinessException("部门不存在");
 
         // 检查部门编码是否与其他部门重复
         var existDepartments = await _departmentRepository.GetListAsync(
             d => d.DepartmentCode == input.DepartmentCode && d.Id != id);
         if (existDepartments.Any())
-            throw new Common.Exceptions.BusinessException("部门编码已存在");
+            throw new BusinessException("部门编码已存在");
 
         // 映射更新字段
         input.Adapt(department);
@@ -136,17 +137,17 @@ public class DepartmentService
     {
         var department = await _departmentRepository.GetByIdAsync(id);
         if (department == null)
-            throw new Common.Exceptions.BusinessException("部门不存在");
+            throw new BusinessException("部门不存在");
 
         // 检查是否有子部门
         var childDepartments = await _departmentRepository.GetListAsync(d => d.ParentId == id);
         if (childDepartments.Any())
-            throw new Common.Exceptions.BusinessException("该部门下存在子部门，无法删除");
+            throw new BusinessException("该部门下存在子部门，无法删除");
 
         // 检查是否有关联用户
         var users = await _userRepository.GetListAsync(u => u.DepartmentId == id);
         if (users.Any())
-            throw new Common.Exceptions.BusinessException("该部门下存在用户，无法删除");
+            throw new BusinessException("该部门下存在用户，无法删除");
 
         return await _departmentRepository.SoftDeleteAsync(id);
     }
@@ -158,7 +159,7 @@ public class DepartmentService
     {
         var department = await _departmentRepository.GetByIdAsync(departmentId);
         if (department == null)
-            throw new Common.Exceptions.BusinessException("部门不存在");
+            throw new BusinessException("部门不存在");
 
         var users = await _userRepository.GetListAsync(u => u.DepartmentId == departmentId);
         return users.Adapt<List<UserDto>>();
