@@ -70,8 +70,10 @@ public class RequestLoggingMiddleware
             {
                 responseBody.Seek(0, SeekOrigin.Begin);
                 responseBodyText = await ReadResponseBodyAsync(responseBody);
-                responseBody.Seek(0, SeekOrigin.Begin);
             }
+            
+            // 重置位置以便复制到原始流
+            responseBody.Seek(0, SeekOrigin.Begin);
 
             // 记录日志
             _logger.LogInformation(

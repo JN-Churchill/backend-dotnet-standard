@@ -7,12 +7,15 @@ using backendStd.Core.Options;
 using backendStd.Core.Filters;
 using backendStd.Core.Middleware;
 using backendStd.Core.Jobs;
+using backendStd.Core.Const;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Mvc;
 using System.Text;
+using System.Security.Claims;
 using Quartz;
 
 // 配置Serilog
@@ -34,6 +37,34 @@ try
     {
         // 添加全局异常过滤器
         options.Filters.Add<GlobalExceptionFilter>();
+    });
+    
+    // 配置模型验证错误响应格式（开发环境显示详细错误）
+    builder.Services.Configure<ApiBehaviorOptions>(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .Select(e => new
+                {
+                    Field = e.Key,
+                    Errors = e.Value?.Errors.Select(x => x.ErrorMessage).ToArray()
+                })
+                .ToList();
+
+            var result = new
+            {
+                Code = 400,
+                Type = "validation_error",
+                Message = "模型验证失败",
+                Result = (object?)null,
+                Extras = errors,
+                Time = DateTime.Now
+            };
+
+            return new BadRequestObjectResult(result);
+        };
     });
 
     // 配置JWT选项
@@ -136,11 +167,12 @@ try
         // 添加JWT认证支持
         options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
         {
-            Description = "JWT授权(数据将在请求头中进行传输) 在下方输入Bearer {token}，注意Bearer和token之间有空格",
+            Description = "JWT授权 - 直接输入token即可(开发环境输入driver即可通过)，系统会自动添加Bearer前缀",
             Name = "Authorization",
             In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-            Scheme = "Bearer"
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT"
         });
         
         options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -181,6 +213,12 @@ try
 
     app.UseHttpsRedirection();
     app.UseStaticFiles();
+
+    // 开发环境认证后门（必须在UseAuthentication之前）
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseMiddleware<DevBypassMiddleware>();
+    }
 
     // 请求日志中间件
     app.UseMiddleware<RequestLoggingMiddleware>();

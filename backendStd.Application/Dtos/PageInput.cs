@@ -18,7 +18,7 @@ public class PageInput
     /// <summary>
     /// 排序字段
     /// </summary>
-    public string OrderBy { get; set; }
+    public string? OrderBy { get; set; }
 
     /// <summary>
     /// 是否降序
