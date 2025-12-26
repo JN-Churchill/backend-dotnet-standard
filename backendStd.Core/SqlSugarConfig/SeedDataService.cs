@@ -15,6 +15,13 @@ public class SeedDataService
     private readonly ISqlSugarClient _db;
     private readonly SeedDataOptions _options;
 
+    // 权限编码前缀常量
+    private const string PermissionCodePrefix = "permission";
+    
+    // 默认密码（仅用于开发和测试环境）
+    // 生产环境应该禁用种子数据初始化或使用更强的密码
+    private const string DefaultPassword = "123456";
+
     public SeedDataService(ISqlSugarClient db, IOptions<SeedDataOptions> options)
     {
         _db = db;
@@ -568,7 +575,7 @@ public class SeedDataService
         }
 
         var now = DateTime.Now;
-        var password = MD5Helper.Encrypt("123456");
+        var password = MD5Helper.Encrypt(DefaultPassword);
 
         // 超级管理员
         var superAdminId = YitIdHelper.NextId();
@@ -685,7 +692,7 @@ public class SeedDataService
 
         // 系统管理员 -> 除权限管理外的所有权限
         var adminPermissions = allPermissions
-            .Where(p => !p.PermissionCode.StartsWith("permission"))
+            .Where(p => !p.PermissionCode.StartsWith(PermissionCodePrefix))
             .Select(p => p.Id)
             .ToList();
 
