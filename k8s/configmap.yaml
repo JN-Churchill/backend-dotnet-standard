@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backendstd-config
+  namespace: default
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft: "Warning"
+  HealthCheckOptions__Enabled: "true"
+  HealthCheckOptions__CheckDatabase: "true"
+  HealthCheckOptions__CheckRedis: "true"
+  HealthCheckOptions__CheckQuartz: "true"
+  RequestLoggingOptions__Enabled: "true"
+  RateLimitOptions__Enabled: "true"
