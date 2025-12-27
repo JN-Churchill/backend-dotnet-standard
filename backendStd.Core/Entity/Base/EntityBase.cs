@@ -23,19 +23,19 @@ public abstract class EntityBase
     /// <summary>
     /// 更新时间
     /// </summary>
-    [SugarColumn(ColumnDescription = "更新时间")]
+    [SugarColumn(ColumnDescription = "更新时间", IsNullable = true)]
     public DateTime? UpdateTime { get; set; }
 
     /// <summary>
     /// 创建人ID
     /// </summary>
-    [SugarColumn(ColumnDescription = "创建人ID", IsOnlyIgnoreUpdate = true)]
+    [SugarColumn(ColumnDescription = "创建人ID", IsOnlyIgnoreUpdate = true, IsNullable = true)]
     public long? CreateUserId { get; set; }
 
     /// <summary>
     /// 更新人ID
     /// </summary>
-    [SugarColumn(ColumnDescription = "更新人ID")]
+    [SugarColumn(ColumnDescription = "更新人ID", IsNullable = true)]
     public long? UpdateUserId { get; set; }
 
     /// <summary>

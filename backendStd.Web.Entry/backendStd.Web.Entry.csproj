@@ -18,4 +18,8 @@
     <ProjectReference Include="..\backendStd.Application\backendStd.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="logs\" />
+  </ItemGroup>
+
 </Project>
