@@ -918,17 +918,280 @@ dotnet add package PackageName
 
 ## 后续扩展建议
 
+### 已实现功能 ✅
+- [x] **健康检查端点** - 完整的健康检查系统，监控数据库、Redis、Quartz、磁盘、内存等
+- [x] **单元测试（xUnit）** - 完整的单元测试覆盖（UserService、JwtHandler、CacheService），25个测试全部通过
+- [x] **容器化部署（Docker）** - 多阶段Dockerfile优化、Docker Compose完整环境
+- [x] **Kubernetes部署** - 完整的K8s配置（Deployment、Service、Ingress、HPA、ConfigMap、Secret）
+- [x] **CI/CD流水线** - GitHub Actions自动化（构建、测试、代码覆盖率、Docker镜像推送）
+
 ### 可选扩展功能
-- [ ] 单元测试（xUnit）
-- [ ] 集成测试
-- [ ] API性能测试
-- [ ] 分布式缓存（Redis集群）
+- [ ] 集成测试（WebApplicationFactory + SQLite内存数据库）
+- [ ] API性能测试（BenchmarkDotNet）
+- [ ] 分布式缓存（Redis集群支持）
 - [ ] 消息队列（RabbitMQ/Kafka）
 - [ ] 微服务支持（gRPC/Service Mesh）
-- [ ] 容器化部署（Docker/Kubernetes）
-- [ ] CI/CD流水线
-- [ ] 性能监控（Application Insights）
-- [ ] 健康检查端点
+- [ ] 性能监控（Application Insights / Prometheus + Grafana）
+
+---
+
+## 健康检查端点
+
+### 功能说明
+
+项目集成了完整的健康检查系统，监控各个关键组件的运行状态。
+
+### 健康检查项
+
+- ✅ **数据库连接** - MySQL连接状态检查
+- ✅ **Redis缓存** - Redis连接和响应检查（可选）
+- ✅ **Quartz调度器** - 定时任务调度器状态检查
+- ✅ **磁盘空间** - 磁盘剩余空间检查
+- ✅ **内存使用** - 进程内存使用情况检查
+- ✅ **种子数据** - 数据库初始化状态检查
+
+### API端点
+
+```bash
+# 基础健康检查（公开访问）
+GET /health
+
+# 详细健康报告（需要认证）
+GET /api/health/details
+```
+
+### 配置说明
+
+在 `appsettings.json` 中配置健康检查选项：
+
+```json
+{
+  "HealthCheckOptions": {
+    "Enabled": true,
+    "CheckDatabase": true,
+    "CheckRedis": false,
+    "CheckQuartz": true,
+    "CheckDiskSpace": true,
+    "MinimumFreeDiskSpaceGB": 1,
+    "CheckMemory": true,
+    "MaxMemoryUsagePercentage": 90
+  }
+}
+```
+
+---
+
+## 单元测试
+
+### 测试覆盖
+
+项目包含全面的单元测试，确保代码质量和可靠性：
+
+- ✅ **UserService测试** - 8个测试用例（登录、注册、CRUD、权限验证）
+- ✅ **JwtHandler测试** - 8个测试用例（Token生成、验证、Claims提取）
+- ✅ **MemoryCacheService测试** - 9个测试用例（缓存CRUD、过期策略）
+
+### 运行测试
+
+```bash
+# 运行所有单元测试
+dotnet test backendStd.UnitTests
+
+# 运行测试并生成覆盖率报告
+dotnet test backendStd.UnitTests --collect:"XPlat Code Coverage"
+
+# 运行特定测试
+dotnet test backendStd.UnitTests --filter "FullyQualifiedName~UserServiceTests"
+```
+
+### 测试技术栈
+
+- **xUnit** - 测试框架
+- **Moq** - Mock框架
+- **FluentAssertions** - 断言库
+
+---
+
+## Docker部署
+
+### 快速启动
+
+使用Docker Compose一键启动完整环境（API + MySQL + Redis + RabbitMQ）：
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f api
+
+# 停止所有服务
+docker-compose down
+```
+
+### 服务访问
+
+- **API服务**: http://localhost:5000
+- **Swagger文档**: http://localhost:5000/swagger
+- **健康检查**: http://localhost:5000/health
+- **MySQL**: localhost:3306
+- **Redis**: localhost:6379
+- **RabbitMQ管理界面**: http://localhost:15672 (admin/rabbitmq123)
+- **Nginx**: http://localhost:80
+
+### 单独构建镜像
+
+```bash
+# 构建Docker镜像
+docker build -t backendstd-api:latest .
+
+# 运行容器
+docker run -d -p 5000:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e DbConnectionOptions__ConnectionConfigs__0__ConnectionString="your-connection-string" \
+  backendstd-api:latest
+```
+
+---
+
+## Kubernetes部署
+
+### 部署步骤
+
+1. **创建命名空间**（可选）
+
+```bash
+kubectl create namespace backendstd
+```
+
+2. **应用配置文件**
+
+```bash
+# 依次部署
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/pvc.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/hpa.yaml
+```
+
+3. **验证部署**
+
+```bash
+# 检查Pod状态
+kubectl get pods -n default
+
+# 检查服务状态
+kubectl get svc -n default
+
+# 查看部署详情
+kubectl describe deployment backendstd-api
+
+# 查看Pod日志
+kubectl logs -f deployment/backendstd-api
+```
+
+### 水平扩缩容
+
+项目配置了HPA（水平Pod自动扩缩容）：
+
+- **最小副本数**: 2
+- **最大副本数**: 10
+- **CPU阈值**: 70%
+- **内存阈值**: 80%
+
+```bash
+# 手动扩容
+kubectl scale deployment backendstd-api --replicas=5
+
+# 查看HPA状态
+kubectl get hpa
+```
+
+### 配置更新
+
+修改ConfigMap或Secret后，需要重启Pod：
+
+```bash
+kubectl rollout restart deployment/backendstd-api
+```
+
+---
+
+## CI/CD流水线
+
+### GitHub Actions工作流
+
+项目包含三个自动化工作流：
+
+#### 1. CI工作流 (`.github/workflows/ci.yml`)
+
+**触发条件**: Push到main/develop分支 或 PR到main/develop分支
+
+**执行步骤**:
+- 代码检出
+- .NET环境设置
+- 依赖恢复
+- 项目构建
+- 单元测试执行
+- 代码覆盖率生成
+- 覆盖率上传到Codecov
+- 代码格式检查
+- 安全漏洞扫描
+
+#### 2. CD工作流 (`.github/workflows/cd.yml`)
+
+**触发条件**: Push到main分支 或 标签推送 或 手动触发
+
+**执行步骤**:
+- Docker镜像构建
+- 推送到GitHub Container Registry
+- （可选）部署到Kubernetes集群
+
+#### 3. PR检查工作流 (`.github/workflows/pr-check.yml`)
+
+**触发条件**: PR到main/develop分支
+
+**执行步骤**:
+- 代码构建
+- 单元测试
+- PR标题格式检查
+- 文件大小检查
+- 自动添加PR评论
+
+### 使用CI/CD
+
+```bash
+# 1. 提交代码触发CI
+git add .
+git commit -m "feat: 添加新功能"
+git push origin feature-branch
+
+# 2. 创建PR触发PR检查
+gh pr create --base main --head feature-branch
+
+# 3. 合并到main触发CD
+gh pr merge --merge
+
+# 4. 创建版本标签触发发布
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### CI/CD状态徽章
+
+可以在README中添加以下徽章：
+
+```markdown
+![CI](https://github.com/your-username/backend-dotnet-standard/workflows/CI/badge.svg)
+![CD](https://github.com/your-username/backend-dotnet-standard/workflows/CD/badge.svg)
+[![codecov](https://codecov.io/gh/your-username/backend-dotnet-standard/branch/main/graph/badge.svg)](https://codecov.io/gh/your-username/backend-dotnet-standard)
+```
 
 ---
 
@@ -959,6 +1222,24 @@ MIT License
 
 ---
 
-**最后更新时间**: 2025年12月25日  
-**版本**: v1.0  
-**项目状态**: 生产就绪
+**最后更新时间**: 2025年12月27日  
+**版本**: v1.1  
+**项目状态**: 生产就绪 + 扩展功能完善
+
+### 更新日志
+
+#### v1.1 (2025-12-27)
+- ✅ 添加健康检查端点和自定义检查项
+- ✅ 实现完整的单元测试框架（25个测试用例）
+- ✅ 添加Docker容器化支持（多阶段构建）
+- ✅ 完整的Kubernetes部署配置（7个配置文件）
+- ✅ 实现CI/CD流水线（GitHub Actions）
+- ✅ 更新文档，添加部署和测试指南
+
+#### v1.0 (2025-12-25)
+- 初始版本发布
+- 完整的DDD四层架构
+- JWT认证授权系统
+- RBAC权限管理
+- 定时任务框架
+- 基础CRUD功能

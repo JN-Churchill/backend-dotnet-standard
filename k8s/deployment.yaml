@@ -1,0 +1,228 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backendstd-api
+  namespace: default
+  labels:
+    app: backendstd-api
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backendstd-api
+  template:
+    metadata:
+      labels:
+        app: backendstd-api
+        version: v1
+    spec:
+      containers:
+      - name: api
+        image: your-registry/backendstd-api:latest  # 替换为实际镜像
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        # 从ConfigMap加载环境变量
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: backendstd-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ASPNETCORE_URLS
+          valueFrom:
+            configMapKeyRef:
+              name: backendstd-config
+              key: ASPNETCORE_URLS
+        
+        # 从Secret加载敏感信息
+        - name: DbConnectionOptions__ConnectionConfigs__0__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: backendstd-secret
+              key: DB_CONNECTION_STRING
+        - name: JWTSettings__IssuerSigningKey
+          valueFrom:
+            secretKeyRef:
+              name: backendstd-secret
+              key: JWT_SIGNING_KEY
+        - name: RedisOptions__Configuration
+          valueFrom:
+            secretKeyRef:
+              name: backendstd-secret
+              key: REDIS_CONFIGURATION
+        
+        # 资源限制
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # 存活探针
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # 就绪探针
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # 启动探针（给应用足够的启动时间）
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 30
+        
+        # 卷挂载
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      
+      # 卷定义
+      volumes:
+      - name: logs
+        emptyDir: {}
+      
+      # 安全上下文
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      # 优雅关闭
+      terminationGracePeriodSeconds: 30
+      
+      # 节点选择器（可选）
+      # nodeSelector:
+      #   environment: production
+      
+      # 亲和性配置（可选）
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - backendstd-api
+              topologyKey: kubernetes.io/hostname
+
+---
+# MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: default
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+          name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "YourSecurePassword123!"
+        - name: MYSQL_DATABASE
+          value: "backendstd"
+        - name: MYSQL_CHARACTER_SET_SERVER
+          value: "utf8mb4"
+        - name: MYSQL_COLLATION_SERVER
+          value: "utf8mb4_unicode_ci"
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: default
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command: 
+        - redis-server
+        - --requirepass
+        - "YourRedisPassword123!"
+        - --maxmemory
+        - "256mb"
+        - --maxmemory-policy
+        - "allkeys-lru"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+      volumes:
+      - name: redis-storage
+        emptyDir: {}
