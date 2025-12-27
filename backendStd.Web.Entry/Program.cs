@@ -8,6 +8,7 @@ using backendStd.Core.Filters;
 using backendStd.Core.Middleware;
 using backendStd.Core.Jobs;
 using backendStd.Core.Const;
+using backendStd.Core.Health;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Serilog;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Security.Claims;
 using Quartz;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 // 配置Serilog
 Log.Logger = new LoggerConfiguration()
@@ -150,6 +152,81 @@ try
     {
         options.WaitForJobsToComplete = true;
     });
+
+    // 配置健康检查
+    var healthCheckOptions = builder.Configuration.GetSection("HealthCheckOptions").Get<HealthCheckOptions>() ?? new HealthCheckOptions();
+    builder.Services.Configure<HealthCheckOptions>(builder.Configuration.GetSection("HealthCheckOptions"));
+    
+    var healthChecksBuilder = builder.Services.AddHealthChecks();
+
+    // 数据库健康检查
+    if (healthCheckOptions.CheckDatabase)
+    {
+        var dbOptions = builder.Configuration.GetSection("DbConnectionOptions").Get<DbConnectionOptions>();
+        if (dbOptions?.ConnectionConfigs?.Any() == true)
+        {
+            var mainConfig = dbOptions.ConnectionConfigs.FirstOrDefault(c => c.ConfigId == "Main");
+            if (mainConfig != null)
+            {
+                healthChecksBuilder.AddMySql(
+                    mainConfig.ConnectionString,
+                    name: "mysql",
+                    failureStatus: HealthStatus.Unhealthy,
+                    tags: new[] { "db", "mysql" });
+            }
+        }
+    }
+
+    // Redis健康检查（如果启用）
+    if (healthCheckOptions.CheckRedis)
+    {
+        var redisOptions = builder.Configuration.GetSection("RedisOptions").Get<RedisOptions>();
+        if (!string.IsNullOrEmpty(redisOptions?.Configuration))
+        {
+            healthChecksBuilder.AddRedis(
+                redisOptions.Configuration,
+                name: "redis",
+                failureStatus: HealthStatus.Degraded,
+                tags: new[] { "cache", "redis" });
+        }
+    }
+
+    // Quartz任务调度器健康检查
+    if (healthCheckOptions.CheckQuartz)
+    {
+        healthChecksBuilder.AddCheck<QuartzHealthCheck>(
+            "quartz",
+            failureStatus: HealthStatus.Degraded,
+            tags: new[] { "scheduler", "quartz" });
+    }
+
+    // 磁盘空间健康检查
+    if (healthCheckOptions.CheckDiskSpace)
+    {
+        healthChecksBuilder.AddDiskStorageHealthCheck(
+            s => s.AddDrive(
+                Path.GetPathRoot(AppContext.BaseDirectory) ?? "/",
+                minimumFreeMegabytes: healthCheckOptions.MinimumFreeDiskSpaceGB * 1024),
+            name: "disk-space",
+            failureStatus: HealthStatus.Degraded,
+            tags: new[] { "system", "disk" });
+    }
+
+    // 内存使用健康检查
+    if (healthCheckOptions.CheckMemory)
+    {
+        healthChecksBuilder.AddProcessAllocatedMemoryHealthCheck(
+            maximumMegabytesAllocated: (int)(healthCheckOptions.MaxMemoryUsagePercentage * 10), // 简化计算
+            name: "memory",
+            failureStatus: HealthStatus.Degraded,
+            tags: new[] { "system", "memory" });
+    }
+
+    // 种子数据初始化状态检查
+    healthChecksBuilder.AddCheck<SeedDataHealthCheck>(
+        "seed-data",
+        failureStatus: HealthStatus.Degraded,
+        tags: new[] { "initialization" });
 
     // 配置统一返回结果（已注释，使用GlobalExceptionFilter代替）
     // builder.Services.AddUnifyResult<backendStd.Core.Util.TdivsResultProvider>();
